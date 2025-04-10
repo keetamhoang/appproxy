@@ -118,14 +118,15 @@ class _ProxyListHomeState extends State<ProxyListHome> {
   }
 
   Future<void> _startProxyViaNative(ProxyItem item, String host, int port, String username, String password) async {
+    List<String> allowedAppPackages = [];
     final Map<String, dynamic> proxyDataToSend = {
       'proxyName': item.token,
-      'proxyType': item.type.toUpperCase(),
+      'proxyType': 'http',
       'proxyHost': host,
       'proxyPort': port,
       'proxyUser': username,
       'proxyPass': password,
-      'token': item.token,
+      'appProxyPackageList': allowedAppPackages,
     };
 
     try {

@@ -68,7 +68,11 @@ class IyueVPNService : VpnService() {
         // {proxyPort=8080, proxyPass=, proxyName=test, proxyType=http, proxyUser=, appProxyPackageList=[com.android.chrome], proxyHost=192.168.0.1}
         val proxyName = data["proxyName"].toString()
         val proxyHost = data["proxyHost"].toString()
-        val proxyPort = (data["proxyPort"] as String).toInt()
+        val proxyPort = when (val port = data["proxyPort"]) {
+            is Int -> port
+            is String -> port.toInt()
+            else -> 0
+        }
         val proxyType = data["proxyType"].toString()
         val proxyUser = data["proxyUser"].toString()
         val proxyPass = data["proxyPass"].toString()
