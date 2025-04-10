@@ -1,16 +1,18 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:appproxy/ui/proxy_detail_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:auto_size_text/auto_size_text.dart';
-import 'package:dio/dio.dart'; // Import DioException
-import 'package:intl/intl.dart'; // Import intl để format ngày giờ (nếu cần)
+import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// Import model và API client
 import '../../models/proxy_item.dart';
 import '../../core/api/api_client.dart';
 
-// Đổi tên lại thành ProxyListHome (nếu bạn đã đổi tên trước đó)
 class ProxyListHome extends StatefulWidget {
   const ProxyListHome({super.key});
 
@@ -19,16 +21,30 @@ class ProxyListHome extends StatefulWidget {
 }
 
 class _ProxyListHomeState extends State<ProxyListHome> {
-  // State variables
-  bool _isLoading = true; // Bắt đầu ở trạng thái loading
+  bool _isLoading = true;
   String? _errorMessage;
-  List<ProxyItem> _proxyList = []; // Danh sách proxy lấy từ API
+  List<ProxyItem> _proxyList = [];
+  String? _runningProxyToken;
+  String? _startingProxyToken;
+
+  static const platform = MethodChannel("cn.ys1231/appproxy/vpn");
 
   @override
   void initState() {
     super.initState();
-    // Gọi API khi widget được khởi tạo lần đầu
     _fetchProxyList();
+    platform.setMethodCallHandler((call) async {
+      debugPrint("Native call received: ${call.method}");
+      if (call.method == 'stopVpn') {
+        if (mounted) {
+          setState(() {
+            print("stopVpn called from native, clearing running/starting token.");
+            _runningProxyToken = null;
+            _startingProxyToken = null;
+          });
+        }
+      }
+    });
   }
 
   @override
@@ -36,32 +52,39 @@ class _ProxyListHomeState extends State<ProxyListHome> {
     super.dispose();
   }
 
-  // --- Hàm gọi API để lấy danh sách proxy ---
+  Future<String> _getSavedCountryForSettings(String token) async {
+    final storageKey = 'proxy_settings_$token';
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? settingsJson = prefs.getString(storageKey);
+      if (settingsJson != null) {
+        final Map<String, dynamic> savedSettings = jsonDecode(settingsJson);
+        return savedSettings['country'] ?? 'all';
+      }
+    } catch (e) {
+      print("Error loading country setting for $storageKey: $e");
+    }
+    return 'all';
+  }
+
   Future<void> _fetchProxyList() async {
-    // Reset state trước khi fetch
-    if (!mounted) return; // Kiểm tra trước khi gọi setState
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     final apiClient = ApiClient.instance;
-
     try {
       final response = await apiClient.get('/api/proxy/list');
-
-      if (!mounted) return; // Kiểm tra sau khi await
-
+      if (!mounted) return;
       if (response.statusCode == 200 && response.data['success'] == true) {
-        // Parse dữ liệu từ response
         final List<dynamic> data = response.data['data'];
         setState(() {
-          // Chuyển đổi list dynamic thành list ProxyItem
           _proxyList = data.map((item) => ProxyItem.fromJson(item)).toList();
           _isLoading = false;
         });
       } else {
-        // Xử lý lỗi từ API (success = false hoặc status code khác 200)
         setState(() {
           _errorMessage = response.data['message'] ?? 'Failed to load proxy list.';
           _isLoading = false;
@@ -69,14 +92,12 @@ class _ProxyListHomeState extends State<ProxyListHome> {
       }
     } on DioException catch (e) {
       if (!mounted) return;
-      // Xử lý lỗi Dio (network, server, etc.)
       setState(() {
-        _errorMessage = _getDioErrorMessage(e); // Hàm helper lấy thông báo lỗi
+        _errorMessage = _getDioErrorMessage(e);
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
-      // Xử lý lỗi khác
       setState(() {
         _errorMessage = 'An unexpected error occurred: $e';
         _isLoading = false;
@@ -84,7 +105,6 @@ class _ProxyListHomeState extends State<ProxyListHome> {
     }
   }
 
-  // --- Hàm helper để lấy thông báo lỗi từ DioException ---
   String _getDioErrorMessage(DioException e) {
     String defaultMessage = 'Network or server error occurred.';
     if (e.response != null && e.response?.data is Map) {
@@ -94,49 +114,227 @@ class _ProxyListHomeState extends State<ProxyListHome> {
     } else if (e.type == DioExceptionType.cancel) {
       return 'Request cancelled.';
     }
-    // Thêm các loại lỗi khác nếu cần
-    return e.message ?? defaultMessage; // Lấy message gốc từ Dio nếu có
+    return e.message ?? defaultMessage;
   }
 
-  // --- Placeholder Navigation Functions (giữ nguyên) ---
-  void _navigateToRotateSetting(ProxyItem item) { // Có thể truyền item vào nếu cần
+  Future<void> _startProxyViaNative(ProxyItem item, String host, int port, String username, String password) async {
+    final Map<String, dynamic> proxyDataToSend = {
+      'proxyName': item.token,
+      'proxyType': item.type.toUpperCase(),
+      'proxyHost': host,
+      'proxyPort': port,
+      'proxyUser': username,
+      'proxyPass': password,
+      'token': item.token,
+    };
+
+    try {
+      print("Invoking startVpn with data: $proxyDataToSend");
+      final bool? result = await platform.invokeMethod<bool>('startVpn', proxyDataToSend);
+
+      if (!mounted) return;
+
+      if (result == true) {
+        print("---- ProxyListHome startVpn for ${item.token} success");
+        setState(() {
+          _runningProxyToken = item.token;
+        });
+      } else {
+        print("---- ProxyListHome startVpn for ${item.token} failed (result is not true)");
+        if(mounted){
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to start proxy via native method.'), backgroundColor: Colors.orange),
+          );
+        }
+      }
+    } on PlatformException catch (e) {
+      print("---- Failed to invoke startVpn: '${e.message}'.");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to start proxy: ${e.message}')),
+        );
+      }
+    } catch (e) {
+      print("---- Unexpected error invoking startVpn: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred: $e')),
+        );
+      }
+    } finally {
+      if (mounted && _startingProxyToken == item.token) {
+        setState(() { _startingProxyToken = null; });
+      }
+    }
+  }
+
+  Future<void> _stopProxy() async {
+    final String? tokenToStop = _runningProxyToken ?? _startingProxyToken;
+    if (tokenToStop == null) return;
+
+    if (mounted) {
+      setState(() {
+        _runningProxyToken = null;
+        _startingProxyToken = null;
+      });
+    }
+
+    try {
+      print("Invoking stopVpn");
+      final bool? result = await platform.invokeMethod<bool>('stopVpn');
+      if (!mounted) return;
+      if (result == true) {
+        print("---- ProxyListHome stopVpn success");
+      } else {
+        print("---- ProxyListHome stopVpn failed (result is not true)");
+        if(mounted){
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to stop proxy properly.'), backgroundColor: Colors.orange),
+          );
+        }
+      }
+    } on PlatformException catch (e) {
+      print("---- Failed to invoke stopVpn: '${e.message}'.");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to stop proxy: ${e.message}')));
+      }
+    } catch (e) {
+      print("---- Unexpected error invoking stopVpn: $e");
+      if(mounted){
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An error occurred: $e')));
+      }
+    }
+  }
+
+  Future<void> _handleProxyToggle(ProxyItem item) async {
+    if (_startingProxyToken != null && _startingProxyToken != item.token) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Another proxy is currently starting...'), duration: Duration(seconds: 2)),
+      );
+      return;
+    }
+    if (_startingProxyToken == item.token) {
+      return;
+    }
+
+    final bool isCurrentlyRunning = _runningProxyToken == item.token;
+
+    if (isCurrentlyRunning) {
+      await _stopProxy();
+    } else {
+      if (mounted) {
+        setState(() {
+          _startingProxyToken = item.token;
+          if (_runningProxyToken != null) {
+            _runningProxyToken = null;
+          }
+        });
+      }
+
+      final apiClient = ApiClient.instance;
+      try {
+        final String country = await _getSavedCountryForSettings(item.token);
+        print("Using country '$country' for rotate API call.");
+
+        final Map<String, dynamic> rotateApiBody = {
+          "token": item.token,
+          "type": "rotate",
+          "country": country,
+        };
+
+        print("Calling /api/proxy/rotate with body: $rotateApiBody");
+        final response = await apiClient.post('/api/proxy/rotate', data: rotateApiBody);
+
+        if (!mounted) return;
+
+        if (response.statusCode == 200 && response.data['success'] == true) {
+          final apiData = response.data['data'];
+          final String? proxyString = apiData['proxy'];
+          final String? username = apiData['username'];
+          final String? password = apiData['password'];
+
+          String? host;
+          int? port;
+          if (proxyString != null && proxyString.contains(':')) {
+            final parts = proxyString.split(':');
+            if (parts.length == 2) {
+              host = parts[0];
+              port = int.tryParse(parts[1]);
+            }
+          }
+
+          if (host != null && port != null && username != null && password != null) {
+            print("Rotate API successful. Extracted: host=$host, port=$port, user=$username");
+            await _startProxyViaNative(item, host, port, username, password);
+          } else {
+            print("Rotate API Error: Missing or invalid connection details in response data.");
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Failed to get valid connection details from server.')),
+              );
+              if (_startingProxyToken == item.token) {
+                setState(() { _startingProxyToken = null; });
+              }
+            }
+          }
+        } else {
+          print("Rotate API failed: Status ${response.statusCode}, Data: ${response.data}");
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(response.data['message'] ?? 'Failed to rotate proxy.')),
+            );
+            if (_startingProxyToken == item.token) {
+              setState(() { _startingProxyToken = null; });
+            }
+          }
+        }
+      } on DioException catch (e) {
+        print("Rotate API DioException: ${e.message}");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_getDioErrorMessage(e))),
+          );
+          if (_startingProxyToken == item.token) {
+            setState(() { _startingProxyToken = null; });
+          }
+        }
+      } catch (e) {
+        print("Unexpected error during rotate/start process: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('An unexpected error occurred: $e')),
+          );
+          if (_startingProxyToken == item.token) {
+            setState(() { _startingProxyToken = null; });
+          }
+        }
+      }
+    }
+  }
+
+  void _navigateToRotateSetting(ProxyItem item) {
     Navigator.push(
-      context,
-      MaterialPageRoute(
-        // Builder tạo instance của ProxyDetailPage và truyền proxyItem vào
-        builder: (context) => ProxyDetailPage(proxyItem: item),
-      ),
-      // (Tùy chọn) Bạn có thể await kết quả trả về từ trang detail nếu cần
-      // .then((result) {
-      //   if (result == true) { // Ví dụ: nếu trang detail trả về true khi có thay đổi
-      //     _fetchProxyList(); // Làm mới danh sách
-      //   }
-      // });
-    );
-  }
-
-  void _navigateToListProxyRunning(ProxyItem item) { // Có thể truyền item vào nếu cần
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Tapped play for proxy: ${item.token} (Status: ${item.status})')),
-    );
-    // TODO: Implement start/stop proxy logic and navigation
+        context,
+        MaterialPageRoute(
+          builder: (context) => ProxyDetailPage(proxyItem: item),
+        )
+    ).then((result) {
+      if (result == true && mounted) { // Nếu trang detail trả về true (đã save)
+        _fetchProxyList(); // Làm mới danh sách để cập nhật thông tin (nếu cần)
+      }
+    });
   }
 
   void _navigateToSubscription() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Navigate to Subscription (Not Implemented)')),
     );
-    // TODO: Implement navigation
   }
-  // --- End Placeholder Navigation Functions ---
 
-
-  // --- Hàm build nội dung chính (Loading, Error, List) ---
   Widget _buildContent() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-
     if (_errorMessage != null) {
       return Center(
         child: Padding(
@@ -162,7 +360,6 @@ class _ProxyListHomeState extends State<ProxyListHome> {
         ),
       );
     }
-
     if (_proxyList.isEmpty) {
       return Center(
           child: Column(
@@ -181,41 +378,36 @@ class _ProxyListHomeState extends State<ProxyListHome> {
           )
       );
     }
-
-    // --- Hiển thị ListView nếu có dữ liệu ---
     return ListView.builder(
-      padding: const EdgeInsets.only(top: 12.0, bottom: 12.0), // Padding trên và dưới ListView
+      padding: const EdgeInsets.only(top: 12.0, bottom: 12.0),
       itemCount: _proxyList.length,
-      // Không cần shrinkWrap và primary=false khi nó nằm trong Expanded
       itemBuilder: (context, index) {
         final proxyItem = _proxyList[index];
-        // Gọi hàm build item cho từng proxy
         return _buildProxyListItem(proxyItem);
       },
     );
   }
 
-  // --- Hàm build một item trong danh sách ---
   Widget _buildProxyListItem(ProxyItem item) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
-    // (Tùy chọn) Format ngày hết hạn
-    String formattedExpiry = item.expiredAt; // Mặc định
+    final bool isStarting = _startingProxyToken == item.token;
+    final bool isRunning = _runningProxyToken == item.token;
+
+    final IconData statusIcon = isRunning ? FontAwesomeIcons.solidCircleStop : FontAwesomeIcons.solidCirclePlay;
+    final Color statusColor = isRunning ? Colors.redAccent[400]! : const Color(0xFF10BA59);
+
+    String formattedExpiry = item.expiredAt;
     final expiryDate = item.expiredDateTime;
     if (expiryDate != null) {
-      // Ví dụ format: 02 Apr 2025, 19:54
       formattedExpiry = DateFormat('dd/MM/yyyy, HH:mm', Localizations.localeOf(context).languageCode).format(expiryDate);
     }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: InkWell(
-        splashColor: Colors.transparent,
-        focusColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        highlightColor: Colors.transparent,
         onTap: () => _navigateToRotateSetting(item),
         child: Container(
           width: double.infinity,
@@ -235,13 +427,12 @@ class _ProxyListHomeState extends State<ProxyListHome> {
             child: Row(
               mainAxisSize: MainAxisSize.max,
               children: [
-                // --- Ảnh Icon ---
                 Padding(
                   padding: const EdgeInsets.only(right: 12.0),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(6),
                     child: Image.asset(
-                      'assets/images/internet.png', // Đảm bảo có ảnh này
+                      'assets/images/internet.png',
                       width: 45,
                       height: 45,
                       fit: BoxFit.cover,
@@ -250,22 +441,19 @@ class _ProxyListHomeState extends State<ProxyListHome> {
                     ),
                   ),
                 ),
-                // --- Cột Text (Token, Type, Expired) ---
                 Expanded(
                   child: Column(
-                    mainAxisSize: MainAxisSize.min, // Co lại theo nội dung
+                    mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4.0),
                         child: Text(
-                          // Hiển thị một phần token cho gọn
                           item.token.length > 15 ? '${item.token.substring(0, 8)}...${item.token.substring(item.token.length - 4)}' : item.token,
-                          style: textTheme.titleMedium?.copyWith( // Dùng titleMedium thay vì headlineSmall
+                          style: textTheme.titleMedium?.copyWith(
                             fontFamily: GoogleFonts.afacad().fontFamily,
                             fontWeight: FontWeight.w500,
-                            // fontSize: 18, // Size có thể đã ổn từ theme
                             letterSpacing: 0.0,
                           ),
                           maxLines: 1,
@@ -275,21 +463,20 @@ class _ProxyListHomeState extends State<ProxyListHome> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4.0),
                         child: AutoSizeText(
-                          item.type.toUpperCase(), // Hiển thị loại proxy (viết hoa)
-                          style: textTheme.bodySmall?.copyWith( // Dùng bodySmall cho đỡ chiếm chỗ
+                          item.type.toUpperCase(),
+                          style: textTheme.bodySmall?.copyWith(
                             fontFamily: GoogleFonts.afacad().fontFamily,
                             letterSpacing: 0.0,
-                            color: colorScheme.primary, // Màu cam
+                            color: colorScheme.primary,
                             fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
                         ),
                       ),
-                      // (Tùy chọn) Hiển thị ngày hết hạn đã format
                       Text(
                         'Expires: $formattedExpiry',
-                        style: textTheme.labelSmall?.copyWith( // Dùng labelSmall
-                          color: Colors.grey[500], // Màu xám nhạt hơn
+                        style: textTheme.labelSmall?.copyWith(
+                          color: Colors.grey[500],
                           fontFamily: GoogleFonts.afacad().fontFamily,
                         ),
                         maxLines: 1,
@@ -298,15 +485,23 @@ class _ProxyListHomeState extends State<ProxyListHome> {
                     ],
                   ),
                 ),
-                // --- Nút Play/Pause dựa trên Status ---
                 InkWell(
-                  onTap: () => _navigateToListProxyRunning(item),
+                  onTap: isStarting ? null : () => _handleProxyToggle(item),
                   borderRadius: BorderRadius.circular(30),
                   child: Padding(
                     padding: const EdgeInsets.all(8.0),
-                    child: FaIcon(
-                      item.statusIcon, // Lấy icon từ model (Play hoặc Pause)
-                      color: item.statusColor, // Lấy màu từ model (Xanh lá hoặc Xám)
+                    child: isStarting
+                        ? SizedBox(
+                      width: 45,
+                      height: 45,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3,
+                        valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                      ),
+                    )
+                        : FaIcon(
+                      statusIcon,
+                      color: statusColor,
                       size: 45,
                     ),
                   ),
@@ -319,7 +514,6 @@ class _ProxyListHomeState extends State<ProxyListHome> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -328,51 +522,14 @@ class _ProxyListHomeState extends State<ProxyListHome> {
     return Column(
       mainAxisSize: MainAxisSize.max,
       children: [
-        // --- Phần Nội dung chính (Loading/Error/List) ---
         Expanded(
-          // Sử dụng RefreshIndicator để cho phép kéo làm mới
             child: RefreshIndicator(
-              onRefresh: _fetchProxyList, // Gọi lại hàm fetch khi kéo
-              color: primaryOrange, // Màu của indicator
-              backgroundColor: theme.cardColor, // Màu nền indicator
-              child: _buildContent(), // Hàm build nội dung
+              onRefresh: _fetchProxyList,
+              color: primaryOrange,
+              backgroundColor: theme.cardColor,
+              child: _buildContent(),
             )
         ),
-
-        // // --- Ad Banner Placeholder ---
-        // Container(
-        //   width: MediaQuery.sizeOf(context).width,
-        //   height: 50,
-        //   color: Colors.grey[800],
-        //   margin: const EdgeInsets.only(bottom: 15, top: 10),
-        //   child: const Center(
-        //     child: Text( 'Ad Placeholder', style: TextStyle(color: Colors.white54)),
-        //   ),
-        // ),
-        //
-        // // --- Nút Upgrade to Pro ---
-        // Padding(
-        //   padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-        //   child: ElevatedButton(
-        //     onPressed: _navigateToSubscription,
-        //     style: ElevatedButton.styleFrom(
-        //       minimumSize: const Size(double.infinity, 56),
-        //       padding: const EdgeInsets.all(8),
-        //       backgroundColor: primaryOrange,
-        //       foregroundColor: Colors.white,
-        //       elevation: 3,
-        //       shape: RoundedRectangleBorder(
-        //         borderRadius: BorderRadius.circular(28),
-        //       ),
-        //       textStyle: theme.textTheme.headlineSmall?.copyWith(
-        //         fontFamily: GoogleFonts.afacad().fontFamily,
-        //         color: Colors.white,
-        //         letterSpacing: 0.0,
-        //       ),
-        //     ),
-        //     child: const Text('Upgrade to Pro'),
-        //   ),
-        // ),
       ],
     );
   }
