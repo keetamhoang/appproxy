@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart'; // Để dùng kDebugMode
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Để dùng kDebugMode
 
 // Lấy base URL từ biến môi trường, có giá trị fallback
 const String _apiBaseUrl = 'https://yeuproxy.com';
@@ -32,24 +33,24 @@ class ApiClient {
       ));
     }
 
-    // (Tùy chọn) Thêm Interceptor để xử lý token (ví dụ)
-    // _dio.interceptors.add(InterceptorsWrapper(
-    //   onRequest:(options, handler) async {
-    //      // Lấy token từ SharedPreferences hoặc Secure Storage
-    //      String? token = await getToken();
-    //      if (token != null) {
-    //         options.headers['Authorization'] = 'Bearer $token';
-    //      }
-    //      return handler.next(options); // Tiếp tục request
-    //   },
-    //   onError: (DioException e, handler) async {
-    //      // Xử lý lỗi 401 Unauthorized (ví dụ: refresh token)
-    //      if (e.response?.statusCode == 401) {
-    //        // Logic refresh token...
-    //      }
-    //      return handler.next(e); // Tiếp tục báo lỗi
-    //   },
-    // ));
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest:(options, handler) async {
+         options.headers['Accept'] = 'application/json';
+         // Lấy token từ SharedPreferences hoặc Secure Storage
+         String? token = await getToken();
+         if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+         }
+         return handler.next(options); // Tiếp tục request
+      },
+      onError: (DioException e, handler) async {
+         // Xử lý lỗi 401 Unauthorized (ví dụ: refresh token)
+         if (e.response?.statusCode == 401) {
+           // Logic refresh token...
+         }
+         return handler.next(e); // Tiếp tục báo lỗi
+      },
+    ));
 
     debugPrint('ApiClient initialized with baseUrl: $_apiBaseUrl');
     if (_apiBaseUrl.contains('default.api.url')) {
@@ -193,5 +194,24 @@ class ApiClient {
     // 1. Throw một exception cụ thể hơn (ví dụ: NetworkException, ApiException)
     // 2. Hiển thị thông báo lỗi chung cho người dùng (không khuyến khích làm ở lớp này)
     // 3. Gửi lỗi lên hệ thống logging (Sentry, Firebase Crashlytics, ...)
+  }
+
+  Future<String?> getToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Đọc giá trị từ SharedPreferences với key 'authToken'
+      // Key này PHẢI khớp với key bạn dùng để LƯU token sau khi login
+      final String? token = prefs.getString('authToken');
+      if (kDebugMode) {
+        print('Retrieved token from SharedPreferences: ${token ?? "Not Found"}');
+      }
+      return token;
+    } catch (e) {
+      // Xử lý lỗi nếu không thể truy cập SharedPreferences
+      if (kDebugMode) {
+        print('Error retrieving token from SharedPreferences: $e');
+      }
+      return null; // Trả về null nếu có lỗi
+    }
   }
 }

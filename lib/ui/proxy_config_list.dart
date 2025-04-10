@@ -8,14 +8,14 @@ import 'package:flutter/services.dart';
 import '../generated/l10n.dart';
 import 'addproxy.dart';
 
-class ProxyListHome extends StatefulWidget {
-  const ProxyListHome({super.key});
+class ProxyListHomeBk extends StatefulWidget {
+  const ProxyListHomeBk({super.key});
 
   @override
-  State<ProxyListHome> createState() => _ProxyListHomeState();
+  State<ProxyListHomeBk> createState() => _ProxyListHomeState();
 }
 
-class _ProxyListHomeState extends State<ProxyListHome> {
+class _ProxyListHomeState extends State<ProxyListHomeBk> {
   // 配置文件操作类
   final ProxyConfigData _proxyConfigData = ProxyConfigData();
 

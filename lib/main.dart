@@ -1,12 +1,12 @@
 import 'package:appproxy/ui/app_config_list.dart';
-import 'package:appproxy/ui/proxy_config_list.dart';
+import 'package:appproxy/ui/proxy_list_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // Import mới
 import 'widgets/auth_wrapper.dart';
-import 'ui/login_page.dart'; // Có thể không cần trực tiếp ở đây nhưng để rõ ràng
 
 import 'generated/l10n.dart';
 import 'ui/settings.dart';
@@ -25,6 +25,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final baseTextTheme = Theme.of(context).textTheme;
     final afacadTextTheme = GoogleFonts.afacadTextTheme(baseTextTheme);
+    const Color primaryOrange = Color(0xFFEA580C);
     return MaterialApp(
       title: "Yêu Proxy",
       debugShowCheckedModeBanner: false,
@@ -85,13 +86,34 @@ class MyApp extends StatelessWidget {
             )
         ),
         // --- Tùy chỉnh thêm cho BottomNavigationBar nếu muốn ---
-        // bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        //   selectedItemColor: Color.fromRGBO(149, 0, 255, 1.0),
-        //   unselectedItemColor: Colors.grey,
-        //   showUnselectedLabels: true, // Hiển thị label cho item không được chọn
-        //   type: BottomNavigationBarType.fixed, // hoặc shifting
-        // ),
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          // Nền có thể là màu đen mờ hoặc cùng màu với Scaffold
+          backgroundColor: Colors.black.withOpacity(0.9), // Đen đậm hơn chút?
+          // backgroundColor: Colors.grey[900], // Hoặc cùng màu Scaffold
+
+          selectedItemColor: primaryOrange,       // Màu cam cho item được chọn (Đã ổn)
+          unselectedItemColor: Colors.grey[600],  // Màu xám cho item không được chọn (Đã ổn)
+
+          // Có thể ẩn label của item không được chọn nếu muốn gọn hơn
+          // showUnselectedLabels: false,
+          showSelectedLabels: true,
+          showUnselectedLabels: true, // Giữ lại label để người dùng biết rõ các tab
+
+          elevation: 0, // Không có shadow (Đã ổn)
+
+          // Style cho label (Đã ổn với font Afacad)
+          selectedLabelStyle: GoogleFonts.afacad(fontWeight: FontWeight.w600, fontSize: 12),
+          unselectedLabelStyle: GoogleFonts.afacad(fontWeight: FontWeight.w500, fontSize: 12),
+
+          // Icon theme: Đồng nhất kích thước icon
+          selectedIconTheme: const IconThemeData(size: 24), // Kích thước khi chọn
+          unselectedIconTheme: const IconThemeData(size: 24), // Kích thước khi không chọn
+
+          // Kiểu thanh bar (fixed là mặc định khi < 4 item và ổn)
+          // type: BottomNavigationBarType.fixed,
+        ),
       ),
+      themeMode: ThemeMode.dark,
       // --- Thay đổi home thành AuthWrapper ---
       home: const AuthWrapper(),
     );
@@ -109,27 +131,66 @@ class iyueMainPage extends StatefulWidget {
 class _iyueMainPageState extends State<iyueMainPage> {
   int _currentIndex = 0;
 
-  // Không cần khởi tạo _children trong initState nữa nếu chúng không thay đổi
-  // Khai báo trực tiếp để dễ quản lý hơn
+  // Khai báo danh sách các trang con
   final List<Widget> _children = <Widget>[
-    const ProxyListHome(),
+    const ProxyListHome(), // Trang mới đã cập nhật
     const AppConfigList(),
     const AppSettings(),
   ];
 
-  // Bỏ initState nếu không có logic phức tạp nào khác cần chạy lúc khởi tạo
+  // --- Hàm xây dựng AppBar động ---
+  AppBar? _buildAppBar(BuildContext context, S s) {
+    // Chỉ hiển thị AppBar cho tab đầu tiên (index = 0)
+    if (_currentIndex == 0) {
+      final theme = Theme.of(context); // Lấy theme
+      return AppBar(
+        backgroundColor: theme.scaffoldBackgroundColor, // Màu nền giống Scaffold
+        automaticallyImplyLeading: false, // Không có nút back tự động
+        title: Text(
+          'YeuProxy.com', // Tiêu đề
+          // Sử dụng style từ theme, đảm bảo font và màu đúng
+          style: theme.textTheme.displaySmall?.copyWith(
+            fontFamily: GoogleFonts.afacad().fontFamily,
+            color: theme.colorScheme.onBackground, // Màu chữ dựa trên theme
+          ),
+        ),
+        // actions: [ // Nút hành động bên phải
+          // IconButton(
+          //   icon: FaIcon( // Icon dấu cộng
+          //     FontAwesomeIcons.plus,
+          //     color: theme.colorScheme.onBackground, // Màu icon dựa trên theme
+          //     size: 22, // Điều chỉnh size icon
+          //   ),
+          //   tooltip: 'Add Proxy', // Tooltip cho accessibility
+          //   onPressed: () {
+          //     // TODO: Implement Add Proxy action (mở dialog, trang mới,...)
+          //     ScaffoldMessenger.of(context).showSnackBar(
+          //       const SnackBar(content: Text('Add Proxy Tapped! (Not Implemented)')),
+          //     );
+          //   },
+          //   padding: const EdgeInsets.only(right: 15.0), // Padding bên phải
+          // ),
+        // ],
+        centerTitle: false, // Tiêu đề căn trái
+        elevation: 0, // Không có shadow
+      );
+    }
+    // Trả về null nếu không phải tab đầu tiên (không hiển thị AppBar)
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Lấy S context ở đây để sử dụng trong BottomNavigationBarItem
-    final s = S.of(context);
+    final s = S.of(context); // Lấy localization strings
+    // final theme = Theme.of(context); // Không cần lấy theme ở đây nữa
 
     return Scaffold(
-      // Sử dụng IndexedStack để giữ state của các trang khi chuyển tab
+      appBar: _buildAppBar(context, s),
       body: IndexedStack(
         index: _currentIndex,
         children: _children,
       ),
+      // BottomNavigationBar sẽ lấy style từ ThemeData
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -137,28 +198,28 @@ class _iyueMainPageState extends State<iyueMainPage> {
             _currentIndex = index;
           });
         },
-        // --- Cập nhật để dùng S.of(context) hoặc biến s đã lấy ---
+        // --- Sử dụng FontAwesomeIcons cho các items ---
         items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: const Icon(Icons.home_outlined), // Icon khác biệt hơn
-            activeIcon: const Icon(Icons.home), // Icon khi được chọn
-            label: s.text_proxy, // Sử dụng biến s
+            // Icon danh sách proxy (regular khi không chọn, solid khi chọn)
+            icon: const FaIcon(FontAwesomeIcons.list), // Hoặc networkWired
+            activeIcon: const FaIcon(FontAwesomeIcons.listCheck), // Hoặc networkWired
+            label: s.text_proxy,
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.apps_outlined), // Icon khác biệt hơn
-            activeIcon: const Icon(Icons.apps),
-            label: s.text_configure, // Sử dụng biến s
+            // Icon cấu hình ứng dụng (vuông vắn hơn)
+            icon: const FaIcon(FontAwesomeIcons.cubesStacked), // Hoặc squareCog, mobileScreenButton
+            activeIcon: const FaIcon(FontAwesomeIcons.cubesStacked),
+            label: s.text_configure,
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.settings_outlined), // Icon khác biệt hơn
-            activeIcon: const Icon(Icons.settings),
-            label: s.text_settings, // Sử dụng biến s
+            // Icon cài đặt (bánh răng)
+            icon: const FaIcon(FontAwesomeIcons.gear), // Hoặc sliders
+            activeIcon: const FaIcon(FontAwesomeIcons.gear),
+            label: s.text_settings,
           ),
         ],
-        // Thêm các tùy chỉnh style nếu muốn (hoặc đặt trong ThemeData)
-        // selectedItemColor: Theme.of(context).colorScheme.primary,
-        // unselectedItemColor: Colors.grey,
-        // showUnselectedLabels: true,
+        // Các thuộc tính style đã được định nghĩa trong theme.bottomNavigationBarTheme
       ),
     );
   }

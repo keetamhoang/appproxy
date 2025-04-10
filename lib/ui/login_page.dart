@@ -77,6 +77,7 @@ class _LoginPageState extends State<LoginPage> {
         // Lấy dữ liệu người dùng từ response
         // !!! Kiểm tra cấu trúc response.data['data']['user'] có đúng không
         final userData = response.data['data']?['user'];
+        final String token = response.data['data']?['token'];
 
         if (userData != null) {
           // Lưu trạng thái đăng nhập và dữ liệu người dùng vào SharedPreferences
@@ -84,6 +85,7 @@ class _LoginPageState extends State<LoginPage> {
           await prefs.setBool('isLoggedIn', true);
           // Mã hóa userData (Map) thành chuỗi JSON để lưu
           await prefs.setString('userData', jsonEncode(userData));
+          await prefs.setString('authToken', token);
 
           // Log dữ liệu user đã lưu (để debug)
           debugPrint(
@@ -100,13 +102,13 @@ class _LoginPageState extends State<LoginPage> {
           debugPrint("Login API success but user data is missing.");
           if (mounted) {
             _showErrorSnackbar(
-                'Đăng nhập thành công nhưng thiếu dữ liệu người dùng.');
+                'Login failed.');
           }
         }
       } else {
         // Trường hợp API trả về 200 nhưng status không phải 'success' hoặc lỗi khác từ API
         String errorMessage =
-            response.data['message'] ?? 'Thông tin đăng nhập không chính xác.';
+            response.data['message'] ?? 'Login failed. Please try again.';
         debugPrint(
             "Login API failed: Status ${response.statusCode}, Data: ${response.data}");
         if (mounted) {
@@ -116,7 +118,7 @@ class _LoginPageState extends State<LoginPage> {
     } on DioException catch (e) {
       // Xử lý lỗi từ Dio (Network, Timeout, Server Error 4xx/5xx, ...)
       debugPrint("Login DioException: ${e.message}");
-      String errorMessage = 'Đã xảy ra lỗi mạng hoặc máy chủ.';
+      String errorMessage = 'Server error. Please try again.';
       if (e.response != null) {
         // Cố gắng lấy thông báo lỗi từ server nếu có
         errorMessage = e.response?.data?['message'] ?? errorMessage;
@@ -124,7 +126,7 @@ class _LoginPageState extends State<LoginPage> {
           e.type == DioExceptionType.sendTimeout ||
           e.type == DioExceptionType.receiveTimeout) {
         errorMessage =
-            'Không thể kết nối đến máy chủ, vui lòng kiểm tra lại mạng.';
+            'Connection timeout. Please check your network and try again.';
       }
       if (mounted) {
         _showErrorSnackbar(errorMessage);
@@ -133,7 +135,7 @@ class _LoginPageState extends State<LoginPage> {
       // Xử lý các lỗi không mong muốn khác
       debugPrint("Login unexpected error: $e");
       if (mounted) {
-        _showErrorSnackbar('Đã xảy ra lỗi không mong muốn.');
+        _showErrorSnackbar('Unexpected error. Please try again.');
       }
     } finally {
       // Luôn tắt trạng thái loading sau khi hoàn tất (trừ khi đã điều hướng)
@@ -169,7 +171,7 @@ class _LoginPageState extends State<LoginPage> {
       // Kiểm tra widget còn tồn tại không trước khi hiển thị SnackBar
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể mở liên kết: $url')),
+          SnackBar(content: Text('Could not launch: $url')),
         );
       }
     }
@@ -287,12 +289,12 @@ class _LoginPageState extends State<LoginPage> {
                               style: GoogleFonts.afacad(color: Colors.white),
                               // Font và màu chữ khi nhập
                               decoration: InputDecoration(
-                                labelText: 'Tên đăng nhập',
+                                labelText: 'Email',
                                 // Nhãn hiển thị phía trên
                                 labelStyle:
                                     GoogleFonts.afacad(color: Colors.white70),
                                 // Font và màu nhãn
-                                hintText: 'Nhập tên đăng nhập của bạn',
+                                hintText: 'Enter your email',
                                 // Text gợi ý khi trường rỗng
                                 hintStyle:
                                     GoogleFonts.afacad(color: Colors.white54),
@@ -331,7 +333,7 @@ class _LoginPageState extends State<LoginPage> {
                               validator: (value) {
                                 // Hàm kiểm tra tính hợp lệ
                                 if (value == null || value.isEmpty) {
-                                  return 'Vui lòng nhập tên đăng nhập'; // Thông báo lỗi
+                                  return 'Please enter your email'; // Thông báo lỗi
                                 }
                                 return null; // Hợp lệ
                               },
@@ -347,10 +349,10 @@ class _LoginPageState extends State<LoginPage> {
                               style: GoogleFonts.afacad(color: Colors.white),
                               // Font và màu chữ khi nhập
                               decoration: InputDecoration(
-                                labelText: 'Mật khẩu',
+                                labelText: 'Password',
                                 labelStyle:
                                     GoogleFonts.afacad(color: Colors.white70),
-                                hintText: 'Nhập mật khẩu của bạn',
+                                hintText: 'Enter your password',
                                 hintStyle:
                                     GoogleFonts.afacad(color: Colors.white54),
                                 prefixIcon: const Icon(Icons.lock_outline,
@@ -380,7 +382,7 @@ class _LoginPageState extends State<LoginPage> {
                               validator: (value) {
                                 // Hàm kiểm tra tính hợp lệ
                                 if (value == null || value.isEmpty) {
-                                  return 'Vui lòng nhập mật khẩu';
+                                  return 'Please enter your password'; // Thông báo lỗi
                                 }
                                 // Có thể thêm các validation khác (ví dụ: độ dài tối thiểu)
                                 return null; // Hợp lệ
@@ -423,7 +425,7 @@ class _LoginPageState extends State<LoginPage> {
                                       ),
                                     ),
                                     child: const Text(
-                                        'Đăng nhập'), // Chữ hiển thị trên nút
+                                        'Login'), // Chữ hiển thị trên nút
                                   ),
 
                             // --- Link Đăng ký (Sử dụng RichText) ---
@@ -440,14 +442,14 @@ class _LoginPageState extends State<LoginPage> {
                                 children: <TextSpan>[
                                   // Phần text tĩnh "Chưa có tài khoản? "
                                   const TextSpan(
-                                      text: 'Chưa có tài khoản? ',
+                                      text: 'Don\'t have an account? ',
                                       style: TextStyle(
                                         fontWeight: FontWeight
                                             .w400, // Độ đậm bình thường
                                       )),
                                   // Phần text link "Đăng ký"
                                   TextSpan(
-                                    text: 'Đăng ký',
+                                    text: 'Sign Up',
                                     style: const TextStyle(
                                       color: orangeColor,
                                       // Màu cam
