@@ -48,6 +48,7 @@ dependencies:
   lpinyin: ^2.0.3
   flutter_markdown: ^0.7.3+1
   markdown: ^7.2.2
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -100,7 +101,7 @@ flutter:
   #         weight: 700
   #
   assets:
-    - assets/icon/proxy.png
+    - assets/images/
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
 flutter_intl:

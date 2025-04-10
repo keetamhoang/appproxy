@@ -2,44 +2,52 @@ import 'package:appproxy/ui/app_config_list.dart';
 import 'package:appproxy/ui/proxy_config_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+// Import mới
+import 'widgets/auth_wrapper.dart';
+import 'ui/login_page.dart'; // Có thể không cần trực tiếp ở đây nhưng để rõ ràng
 
 import 'generated/l10n.dart';
 import 'ui/settings.dart';
 
-void main() {
+// Thêm async và ensureInitialized
+void main() async {
+  // Đảm bảo Flutter bindings đã được khởi tạo trước khi dùng plugins
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    /**
-     * 构建并返回一个MaterialApp实例。
-     * 这个函数不接受任何参数。
-     *
-     * @return 返回一个配置了特定主题和起始页面的MaterialApp实例。
-     */
+    final baseTextTheme = Theme.of(context).textTheme;
+    final afacadTextTheme = GoogleFonts.afacadTextTheme(baseTextTheme);
     return MaterialApp(
-      // 应用标题
-      title: "appproxy",
-      // 在调试模式下打开一个小“DEBUG”横幅，以指示应用程序处于调试模式。默认情况下（在调试模式下）处于打开状态，要将其关闭，请将构造函数参数设置为 false。在发布模式下这没有任何效果
-      debugShowCheckedModeBanner: true,
+      title: "Yêu Proxy",
+      debugShowCheckedModeBanner: false,
       localeResolutionCallback: (Locale? locale, Iterable<Locale> supportedLocales) {
         var result =
-            supportedLocales.where((element) => element.languageCode == locale?.languageCode);
+        supportedLocales.where((element) => element.languageCode == locale?.languageCode);
         if (result.isNotEmpty) {
-          debugPrint(locale?.languageCode);
-          if (locale.toString().contains("zh")) {
+          debugPrint("Detected language: ${locale?.languageCode}");
+          // Đơn giản hóa logic chọn ngôn ngữ
+          if (locale?.languageCode == 'zh') {
             return const Locale('zh', 'CN');
-          } else {
+          } else if (locale?.languageCode == 'en') {
             return const Locale('en', 'US');
           }
+          // Thêm ngôn ngữ khác nếu cần, ví dụ tiếng Việt
+          // else if (locale?.languageCode == 'vi') {
+          //    return const Locale('vi', 'VN');
+          // }
         }
-        return const Locale('zh', 'CN');
-        // return _initLocale;
+        // Ngôn ngữ mặc định nếu không tìm thấy hoặc không hỗ trợ
+        // Có thể chọn en hoặc zh tùy theo đối tượng người dùng chính
+        debugPrint("Using default language: en_US");
+        return const Locale('en', 'US');
       },
       localizationsDelegates: const [
         S.delegate,
@@ -49,21 +57,48 @@ class MyApp extends StatelessWidget {
       ],
       supportedLocales: S.delegate.supportedLocales,
       theme: ThemeData(
-          // 使用深紫色作为主题颜色方案的种子颜色
-          colorScheme: ColorScheme.fromSeed(
-            primary: const Color.fromRGBO(149, 0, 255, 1.0),
-            seedColor: const Color.fromRGBO(149, 0, 255, 1.0),
-            secondary: Colors.transparent, // 可选：设置次要颜色为透明，避免产生额外的颜色
-            error: Colors.transparent, // 可选：设置错误颜色为透明，避免产生额外的颜色
-            // 其他颜色也可以根据需要设置为透明或自定义颜色
+        // --- Cân nhắc sử dụng Material 3 ---
+        useMaterial3: true, // Bật Material 3 để có UI/UX hiện đại hơn
+        colorScheme: ColorScheme.fromSeed(
+          // Dùng màu seed để tạo bảng màu nhất quán theo Material 3
+          seedColor: const Color.fromRGBO(149, 0, 255, 1.0),
+          // primary: const Color.fromRGBO(149, 0, 255, 1.0), // Seed color sẽ tự tạo primary
+          // secondary: Colors.amber, // Có thể tùy chỉnh secondary nếu muốn
+          brightness: Brightness.light, // Chọn theme sáng hoặc tối
+        ),
+        textTheme: afacadTextTheme,
+        appBarTheme: AppBarTheme(
+          centerTitle: true,
+          titleTextStyle: GoogleFonts.afacad(
+            fontSize: 20, // Điều chỉnh size nếu cần
+            fontWeight: FontWeight.w500, // Điều chỉnh weight nếu cần
+            color: // Chọn màu phù hợp với AppBar của bạn (ví dụ: colorScheme.onPrimary)
+            null, // Để null để nó tự lấy màu từ theme
           ),
-          appBarTheme: const AppBarTheme(centerTitle: true)),
-      // 设置底部导航菜单作为应用的起始页面
-      home: const iyueMainPage(),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              textStyle: GoogleFonts.afacad( // Áp dụng cho ElevatedButton mặc định
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16 // Size mặc định cho nút
+              ),
+            )
+        ),
+        // --- Tùy chỉnh thêm cho BottomNavigationBar nếu muốn ---
+        // bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        //   selectedItemColor: Color.fromRGBO(149, 0, 255, 1.0),
+        //   unselectedItemColor: Colors.grey,
+        //   showUnselectedLabels: true, // Hiển thị label cho item không được chọn
+        //   type: BottomNavigationBarType.fixed, // hoặc shifting
+        // ),
+      ),
+      // --- Thay đổi home thành AuthWrapper ---
+      home: const AuthWrapper(),
     );
   }
 }
 
+// --- Lớp iyueMainPage giữ nguyên logic cũ ---
 class iyueMainPage extends StatefulWidget {
   const iyueMainPage({super.key});
 
@@ -74,30 +109,27 @@ class iyueMainPage extends StatefulWidget {
 class _iyueMainPageState extends State<iyueMainPage> {
   int _currentIndex = 0;
 
-  late List<Widget> _children;
+  // Không cần khởi tạo _children trong initState nữa nếu chúng không thay đổi
+  // Khai báo trực tiếp để dễ quản lý hơn
+  final List<Widget> _children = <Widget>[
+    const ProxyListHome(),
+    const AppConfigList(),
+    const AppSettings(),
+  ];
 
-  // initState函数是在State对象被创建并插入到Widget树中时调用的。
-  @override
-  void initState() {
-    super.initState(); // 调用父类的initState方法
-    // 初始化_children列表，包含首页、配置列表和设置页三个Widget
-    _children = <Widget>[
-      // 首页Widget
-      const ProxyListHome(),
-      // app配置列表
-      const AppConfigList(),
-      // 设置页面
-      const AppSettings(), // 设置页Widget
-    ];
-  }
+  // Bỏ initState nếu không có logic phức tạp nào khác cần chạy lúc khởi tạo
 
   @override
   Widget build(BuildContext context) {
+    // Lấy S context ở đây để sử dụng trong BottomNavigationBarItem
+    final s = S.of(context);
+
     return Scaffold(
+      // Sử dụng IndexedStack để giữ state của các trang khi chuyển tab
       body: IndexedStack(
         index: _currentIndex,
         children: _children,
-      ), //_children[_currentIndex]),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -105,21 +137,32 @@ class _iyueMainPageState extends State<iyueMainPage> {
             _currentIndex = index;
           });
         },
+        // --- Cập nhật để dùng S.of(context) hoặc biến s đã lấy ---
         items: <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: const Icon(Icons.home),
-            label: S.current.text_proxy,
+            icon: const Icon(Icons.home_outlined), // Icon khác biệt hơn
+            activeIcon: const Icon(Icons.home), // Icon khi được chọn
+            label: s.text_proxy, // Sử dụng biến s
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.person),
-            label: S.of(context).text_configure,
+            icon: const Icon(Icons.apps_outlined), // Icon khác biệt hơn
+            activeIcon: const Icon(Icons.apps),
+            label: s.text_configure, // Sử dụng biến s
           ),
           BottomNavigationBarItem(
-            icon: const Icon(Icons.settings),
-            label: S.of(context).text_settings,
+            icon: const Icon(Icons.settings_outlined), // Icon khác biệt hơn
+            activeIcon: const Icon(Icons.settings),
+            label: s.text_settings, // Sử dụng biến s
           ),
         ],
+        // Thêm các tùy chỉnh style nếu muốn (hoặc đặt trong ThemeData)
+        // selectedItemColor: Theme.of(context).colorScheme.primary,
+        // unselectedItemColor: Colors.grey,
+        // showUnselectedLabels: true,
       ),
     );
   }
 }
+
+// Các class ProxyListHome, AppConfigList, AppSettings giữ nguyên
+// (Bạn cần đảm bảo chúng tồn tại và được import đúng)
