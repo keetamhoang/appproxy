@@ -221,10 +221,10 @@ class S {
     );
   }
 
-  /// `Update Tips`
+  /// `New update is ready!`
   String get text_update_tips {
     return Intl.message(
-      'Update Tips',
+      'New update is ready!',
       name: 'text_update_tips',
       desc: '',
       args: [],

@@ -81,7 +81,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "text_update_content":
             MessageLookupByLibrary.simpleMessage("Update Content:"),
         "text_update_time": MessageLookupByLibrary.simpleMessage("Update Time"),
-        "text_update_tips": MessageLookupByLibrary.simpleMessage("Update Tips"),
+        "text_update_tips": MessageLookupByLibrary.simpleMessage("New update is ready!"),
         "text_version_update":
             MessageLookupByLibrary.simpleMessage("Version Update")
       };

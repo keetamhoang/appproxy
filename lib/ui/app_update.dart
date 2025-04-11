@@ -2,6 +2,7 @@ import 'package:appproxy/generated/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:markdown/markdown.dart' as md;
 
 class AppUpdate extends StatefulWidget {
@@ -34,25 +35,54 @@ class _AppUpdateState extends State<AppUpdate> {
     final maxWidth = MediaQuery.of(context).size.width * 0.8; // 设置为屏幕宽度的80%
     final maxHeight = MediaQuery.of(context).size.height * 0.3; // 设置为屏幕高度的80%
     return AlertDialog(
-        title: Text(S.of(context).text_update_tips),
+        backgroundColor: Colors.grey[50],
+        title: Text(
+          S.of(context).text_update_tips,
+          style: GoogleFonts.afacad(),
+        ),
         content: Column(
             mainAxisSize: MainAxisSize.min, // 仅占用必要高度
             crossAxisAlignment: CrossAxisAlignment.start, // 左对齐
             children: [
               Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                      '${S.of(context).text_current_version}:${widget.version}')),
+                  child: RichText(
+                    text: TextSpan(
+                      style: GoogleFonts.afacad(color: Colors.black),
+                      children: [
+                        TextSpan(
+                          text: '${S.of(context).text_current_version}: ',
+                        ),
+                        TextSpan(
+                          text: 'v${widget.version}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  )),
               Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                      '${S.of(context).text_latest_version}:${widget.versionName}')),
+                  child: RichText(
+                    text: TextSpan(
+                      style: GoogleFonts.afacad(color: Colors.black),
+                      children: [
+                        TextSpan(
+                          text: '${S.of(context).text_latest_version}: ',
+                        ),
+                        TextSpan(
+                          text: '${widget.versionName}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  )),
               Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     S.of(context).text_update_content,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 10,
+                    style: GoogleFonts.afacad(fontSize: 14),
                   )),
               // child: Text('更新内容:${widget.modifyContent}',overflow: TextOverflow.ellipsis,maxLines: 10,)),
               const SizedBox(

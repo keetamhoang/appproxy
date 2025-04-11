@@ -148,10 +148,9 @@ Future<void> _launchUrl(_url) async {
  */
 void showUpdateDialog(BuildContext context, String version, String arch,
     {url = '', retryCount = 0}) async {
-  int maxRetry = 2; // 最大重试次数
   // 获取版本信息
   String appproxyUpdateUrl = url != ""
-      ? url : "https://pfile.ys1231.cn/modules/appproxy/appproxy.json";
+      ? url : "https://yeuproxy.com/update.json";
   // 使用dio获取版本信息
   String versionName = "0";
   String modifyContent = "";
@@ -159,37 +158,14 @@ void showUpdateDialog(BuildContext context, String version, String arch,
   try {
     var dio = Dio();
     Response value = await dio.get(appproxyUpdateUrl);
-    if (appproxyUpdateUrl.contains('ys1231.cn')) {
-      var data = value.data;
-      // 1 普通更新 0 不更新
-      versionName = data['VersionName'];
-      modifyContent = data['ModifyContent'];
-      DownloadUrl = '${data['DownloadUrl']}$versionName/app-$arch-release.apk';
-    } else {
-      final releasesJson = value.data;
-      // 获取最新版本的tag名
-      versionName = releasesJson['tag_name'];
-      releasesJson['assets'].forEach((asset) {
-        if (asset['name'].contains(arch)) {
-          DownloadUrl = asset['browser_download_url'];
-          return;
-        }
-      });
-      modifyContent = releasesJson['body'];
-    }
+    var data = value.data;
+    versionName = data['VersionName'];
+    modifyContent = data['ModifyContent'];
+    DownloadUrl = data['DownloadUrl'];
   } catch (e) {
-    if (retryCount < maxRetry) {
-      retryCount++;
-      appproxyUpdateUrl = "https://api.github.com/repos/ys1231/appproxy/releases/latest";
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(S.of(context).text_get_version_info_fail)));
-      showUpdateDialog(context, version, arch,
-          url: appproxyUpdateUrl, retryCount: retryCount);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(S.of(context).text_get_version_info_check_networ)));
-      return;
-    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(S.of(context).text_get_version_info_check_networ)));
+    return;
   }
 
   Version ver1 = Version.parse(versionName.replaceAll('v', ''));
