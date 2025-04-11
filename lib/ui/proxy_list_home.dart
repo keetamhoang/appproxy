@@ -29,6 +29,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
   Timer? _rotationTimer;
   bool _currentRotationEnabled = false;
   int? _currentRotateTimerSeconds;
+  Map<String, dynamic>? _runningProxyDetails;
 
   static const platform = MethodChannel("cn.ys1231/appproxy/vpn");
 
@@ -44,6 +45,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
             print("stopVpn called from native, clearing running/starting token.");
             _runningProxyToken = null;
             _startingProxyToken = null;
+            _runningProxyDetails = null;
           });
         }
       }
@@ -146,7 +148,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
 
           // Gọi lại hàm Native Start VPN với thông tin MỚI
           // Lưu ý: Không set _startingProxyToken ở đây vì đây là update ngầm
-          await _startProxyViaNative(originalItem, host, port, username, password, isPeriodicUpdate: true);
+          await _startProxyViaNative(originalItem, host, port, username, password, apiData, isPeriodicUpdate: true);
         } else {
           print("Periodic Rotate API Error: Missing or invalid connection details.");
           // Lỗi lấy thông tin mới -> Dừng proxy và timer? Hay để chạy tiếp với thông tin cũ?
@@ -231,7 +233,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
     return e.message ?? defaultMessage;
   }
 
-  Future<void> _startProxyViaNative(ProxyItem item, String host, int port, String username, String password, {bool isPeriodicUpdate = false}) async {
+  Future<void> _startProxyViaNative(ProxyItem item, String host, int port, String username, String password, Map<String, dynamic> apiData, {bool isPeriodicUpdate = false}) async {
     List<String> allowedAppPackages = [];
     final Map<String, dynamic> proxyDataToSend = {
       'proxyName': item.token,
@@ -254,6 +256,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
         if (_runningProxyToken != item.token || isPeriodicUpdate) {
           setState(() {
             _runningProxyToken = item.token;
+            _runningProxyDetails = apiData;
             // Reset starting token nếu đây là lần khởi động đầu tiên thành công
             if (!isPeriodicUpdate) {
               _startingProxyToken = null;
@@ -267,6 +270,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
         if(mounted){
           setState(() {
             _runningProxyToken = null;
+            _runningProxyDetails = null;
             if (!isPeriodicUpdate) _startingProxyToken = null;
           });
           _stopRotationTimer(); // Dừng timer nếu có lỗi
@@ -280,6 +284,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
       if (mounted) {
         setState(() {
           _runningProxyToken = null;
+          _runningProxyDetails = null;
           if (!isPeriodicUpdate) _startingProxyToken = null;
         });
         _stopRotationTimer();
@@ -292,6 +297,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
       if (mounted) {
         setState(() {
           _runningProxyToken = null;
+          _runningProxyDetails = null;
           if (!isPeriodicUpdate) _startingProxyToken = null;
         });
         _stopRotationTimer();
@@ -355,6 +361,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
       setState(() {
         _runningProxyToken = null;
         _startingProxyToken = null;
+        _runningProxyDetails = null;
       });
     }
 
@@ -407,6 +414,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
           if (_runningProxyToken != null) {
             _runningProxyToken = null;
           }
+          _runningProxyDetails = null;
         });
       }
 
@@ -444,7 +452,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
 
           if (host != null && port != null && username != null && password != null) {
             print("Rotate API successful. Extracted: host=$host, port=$port, user=$username");
-            await _startProxyViaNative(item, host, port, username, password);
+            await _startProxyViaNative(item, host, port, username, password, apiData);
           } else {
             print("Rotate API Error: Missing or invalid connection details in response data.");
             if (mounted) {
@@ -584,6 +592,11 @@ class _ProxyListHomeState extends State<ProxyListHome> {
       formattedExpiry = DateFormat('dd/MM/yyyy, HH:mm', Localizations.localeOf(context).languageCode).format(expiryDate);
     }
 
+    final details = (isRunning && _runningProxyDetails != null) ? _runningProxyDetails : null;
+    final String? currentIp = details?['currentIp'] as String?;
+    final String? city = details?['city'] as String?;
+    final String? countryDisplay = details?['country'] as String?;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: InkWell(
@@ -660,7 +673,38 @@ class _ProxyListHomeState extends State<ProxyListHome> {
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                      )
+                      ),
+                      if (isRunning && details != null) ...[
+                        const SizedBox(height: 5), // Khoảng cách nhỏ
+                        if (currentIp != null)
+                          Row(
+                            children: [
+                              Icon(Icons.my_location, size: 14, color: Colors.cyan[300]),
+                              const SizedBox(width: 4),
+                              Expanded( // Cho phép IP dài có thể wrap hoặc ellipsis
+                                child: Text(
+                                  currentIp,
+                                  style: textTheme.labelSmall?.copyWith(color: Colors.cyan[300]),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        if (city != null || countryDisplay != null)
+                          Row(
+                            children: [
+                              Icon(Icons.location_on_outlined, size: 14, color: Colors.grey[500]),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  '${city ?? ''}${city != null && countryDisplay != null ? ', ' : ''}${countryDisplay ?? ''}',
+                                  style: textTheme.labelSmall?.copyWith(color: Colors.grey[500]),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
                     ],
                   ),
                 ),
