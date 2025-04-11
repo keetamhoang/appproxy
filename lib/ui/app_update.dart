@@ -54,7 +54,7 @@ class _AppUpdateState extends State<AppUpdate> {
                           text: '${S.of(context).text_current_version}: ',
                         ),
                         TextSpan(
-                          text: 'v${widget.version}',
+                          text: widget.version,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],

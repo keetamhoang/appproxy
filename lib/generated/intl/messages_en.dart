@@ -45,7 +45,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "text_delete_proxy_tips": MessageLookupByLibrary.simpleMessage(
             "Are you sure you want to delete this proxy configuration?"),
         "text_describe": MessageLookupByLibrary.simpleMessage(
-            "appproxy is a lightweight VPN proxy tool that supports HTTP and SOCKS5 protocols."),
+            "YeuProxy is a lightweight VPN proxy tool that supports HTTP and SOCKS5 protocols."),
         "text_download": MessageLookupByLibrary.simpleMessage("Download"),
         "text_get_version_info_check_networ":
             MessageLookupByLibrary.simpleMessage(

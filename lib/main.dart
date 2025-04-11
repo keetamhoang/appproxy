@@ -1,16 +1,14 @@
-import 'package:appproxy/ui/app_config_list.dart';
 import 'package:appproxy/ui/app_config_proxy.dart';
 import 'package:appproxy/ui/proxy_list_home.dart';
+import 'package:appproxy/ui/proxy_settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'generated/l10n.dart';
 // Import mới
 import 'widgets/auth_wrapper.dart';
-
-import 'generated/l10n.dart';
-import 'ui/settings.dart';
 
 // Thêm async và ensureInitialized
 void main() async {
@@ -63,8 +61,8 @@ class MyApp extends StatelessWidget {
         useMaterial3: true, // Bật Material 3 để có UI/UX hiện đại hơn
         colorScheme: ColorScheme.fromSeed(
           // Dùng màu seed để tạo bảng màu nhất quán theo Material 3
-          seedColor: const Color.fromRGBO(149, 0, 255, 1.0),
-          // primary: const Color.fromRGBO(149, 0, 255, 1.0), // Seed color sẽ tự tạo primary
+          seedColor: Colors.white,
+          primary: Color(0xFFEA580C),
           // secondary: Colors.amber, // Có thể tùy chỉnh secondary nếu muốn
           brightness: Brightness.light, // Chọn theme sáng hoặc tối
         ),

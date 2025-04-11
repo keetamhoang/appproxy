@@ -361,10 +361,10 @@ class S {
     );
   }
 
-  /// `appproxy is a lightweight VPN proxy tool that supports HTTP and SOCKS5 protocols.`
+  /// `YeuProxy is a lightweight VPN proxy tool that supports HTTP and SOCKS5 protocols.`
   String get text_describe {
     return Intl.message(
-      'appproxy is a lightweight VPN proxy tool that supports HTTP and SOCKS5 protocols.',
+      'YeuProxy is a lightweight VPN proxy tool that supports HTTP and SOCKS5 protocols.',
       name: 'text_describe',
       desc: '',
       args: [],

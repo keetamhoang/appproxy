@@ -661,7 +661,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
                           style: textTheme.bodySmall?.copyWith(
                             fontFamily: GoogleFonts.afacad().fontFamily,
                             letterSpacing: 0.0,
-                            color: colorScheme.primary,
+                            color: Colors.blueGrey[600],
                             fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,

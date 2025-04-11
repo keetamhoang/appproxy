@@ -9,14 +9,14 @@ import 'package:version/version.dart';
 
 import '../generated/l10n.dart';
 
-class AppSettings extends StatefulWidget {
-  const AppSettings({super.key});
+class AppSettingsBk extends StatefulWidget {
+  const AppSettingsBk({super.key});
 
   @override
-  State<AppSettings> createState() => _AppSettingsState();
+  State<AppSettingsBk> createState() => _AppSettingsState();
 }
 
-class _AppSettingsState extends State<AppSettings> {
+class _AppSettingsState extends State<AppSettingsBk> {
   var _version = "v0";
   String _arch = "";
   bool _isCheckUpdate = true;
