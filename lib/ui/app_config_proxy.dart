@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data'; // Import để dùng Uint8List
 
-import 'package:appproxy/data/app_proxy_config_data.dart';
-import 'package:appproxy/events/app_events.dart';
-import 'package:appproxy/generated/l10n.dart';
+import 'package:yeuproxy/data/app_proxy_config_data.dart';
+import 'package:yeuproxy/events/app_events.dart';
+import 'package:yeuproxy/generated/l10n.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

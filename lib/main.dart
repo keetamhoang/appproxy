@@ -1,6 +1,6 @@
-import 'package:appproxy/ui/app_config_proxy.dart';
-import 'package:appproxy/ui/proxy_list_home.dart';
-import 'package:appproxy/ui/proxy_settings_page.dart';
+import 'package:yeuproxy/ui/app_config_proxy.dart';
+import 'package:yeuproxy/ui/proxy_list_home.dart';
+import 'package:yeuproxy/ui/proxy_settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';

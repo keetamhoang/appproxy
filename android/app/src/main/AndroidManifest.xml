@@ -23,7 +23,7 @@
     <application
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:label="appproxy">
+        android:label="YeuProxy">
         <service
             android:name=".IyueService.IyueVPNService"
             android:enabled="true"

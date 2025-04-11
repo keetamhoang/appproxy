@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:appproxy/events/app_events.dart';
-import 'package:appproxy/ui/proxy_detail_page.dart';
+import 'package:yeuproxy/events/app_events.dart';
+import 'package:yeuproxy/ui/proxy_detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';

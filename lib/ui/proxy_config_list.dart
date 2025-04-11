@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:appproxy/data/proxy_config_data.dart';
-import 'package:appproxy/events/app_events.dart';
+import 'package:yeuproxy/data/proxy_config_data.dart';
+import 'package:yeuproxy/events/app_events.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 

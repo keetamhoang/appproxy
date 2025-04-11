@@ -1,5 +1,5 @@
-import 'package:appproxy/data/common.dart'; // Giữ lại nếu AppSetings ở đây
-import 'package:appproxy/ui/app_update.dart';
+import 'package:yeuproxy/data/common.dart'; // Giữ lại nếu AppSetings ở đây
+import 'package:yeuproxy/ui/app_update.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
