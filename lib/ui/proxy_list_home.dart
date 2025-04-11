@@ -26,6 +26,9 @@ class _ProxyListHomeState extends State<ProxyListHome> {
   List<ProxyItem> _proxyList = [];
   String? _runningProxyToken;
   String? _startingProxyToken;
+  Timer? _rotationTimer;
+  bool _currentRotationEnabled = false;
+  int? _currentRotateTimerSeconds;
 
   static const platform = MethodChannel("cn.ys1231/appproxy/vpn");
 
@@ -49,6 +52,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
 
   @override
   void dispose() {
+    _stopRotationTimer();
     super.dispose();
   }
 
@@ -65,6 +69,116 @@ class _ProxyListHomeState extends State<ProxyListHome> {
       print("Error loading country setting for $storageKey: $e");
     }
     return 'all';
+  }
+
+  Future<Map<String, dynamic>> _getRotationSettings(String token) async {
+    final storageKey = 'proxy_settings_$token';
+    bool enabled = false; // Mặc định
+    int? timerSeconds; // Mặc định null
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? settingsJson = prefs.getString(storageKey);
+      if (settingsJson != null) {
+        final Map<String, dynamic> savedSettings = jsonDecode(settingsJson);
+        enabled = savedSettings['rotateEnabled'] ?? false;
+        // Đọc timer, đảm bảo là int nếu không null
+        final dynamic savedTimer = savedSettings['rotateTimer'];
+        if (savedTimer is int) {
+          timerSeconds = savedTimer > 0 ? savedTimer : null; // Chỉ lấy số dương
+        } else if (savedTimer is String) {
+          final parsedTimer = int.tryParse(savedTimer);
+          timerSeconds = (parsedTimer != null && parsedTimer > 0) ? parsedTimer : null;
+        }
+        print('Loaded rotation settings for $storageKey: enabled=$enabled, timer=$timerSeconds');
+      } else {
+        print('No saved rotation settings found for $storageKey, using defaults.');
+      }
+    } catch (e) {
+      print("Error loading rotation settings for $storageKey: $e");
+    }
+    return {'enabled': enabled, 'timer': timerSeconds};
+  }
+
+  Future<void> _performRotation(String token) async {
+    // Kiểm tra xem proxy này có còn đang chạy không và widget còn tồn tại không
+    if (!mounted || _runningProxyToken != token || !_currentRotationEnabled || _currentRotateTimerSeconds == null) {
+      print("Rotation stopped: Conditions not met (mounted=$mounted, running=$_runningProxyToken, expected=$token, enabled=$_currentRotationEnabled)");
+      _rotationTimer?.cancel(); // Dừng timer nếu điều kiện không còn đúng
+      _rotationTimer = null;
+      return;
+    }
+
+    print("Performing periodic rotation for token: $token");
+    final apiClient = ApiClient.instance;
+    try {
+      final String country = await _getSavedCountryForSettings(token); // Lấy country mới nhất
+      final Map<String, dynamic> rotateApiBody = {
+        "token": token,
+        "type": "rotate",
+        "country": country,
+      };
+
+      print("Calling periodic /api/proxy/rotate with body: $rotateApiBody");
+      final response = await apiClient.post('/api/proxy/rotate', data: rotateApiBody);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        final apiData = response.data['data'];
+        final String? proxyString = apiData['proxy'];
+        final String? username = apiData['username'];
+        final String? password = apiData['password'];
+        String? host;
+        int? port;
+        if (proxyString != null && proxyString.contains(':')) {
+          final parts = proxyString.split(':');
+          if (parts.length == 2) {
+            host = parts[0];
+            port = int.tryParse(parts[1]);
+          }
+        }
+
+        if (host != null && port != null && username != null && password != null) {
+          print("Periodic Rotate API successful. Extracted: host=$host, port=$port, user=$username");
+          // Tìm lại ProxyItem gốc để lấy type (hoặc lưu type vào state)
+          final originalItem = _proxyList.firstWhere((p) => p.token == token, orElse: () => ProxyItem(token: token, expiredAt: '', status: 0, createdAt: '', type: 'http')); // Cần type gốc
+
+          // Gọi lại hàm Native Start VPN với thông tin MỚI
+          // Lưu ý: Không set _startingProxyToken ở đây vì đây là update ngầm
+          await _startProxyViaNative(originalItem, host, port, username, password, isPeriodicUpdate: true);
+        } else {
+          print("Periodic Rotate API Error: Missing or invalid connection details.");
+          // Lỗi lấy thông tin mới -> Dừng proxy và timer? Hay để chạy tiếp với thông tin cũ?
+          // Quyết định: Dừng proxy và timer để đảm bảo an toàn/tránh lỗi.
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to get new proxy details during rotation. Stopping proxy.'), backgroundColor: Colors.orange),
+          );
+          await _stopProxy(); // Dừng proxy
+        }
+      } else {
+        print("Periodic Rotate API failed: Status ${response.statusCode}, Data: ${response.data}");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Rotation failed: ${response.data['message'] ?? 'Server error'}'), backgroundColor: Colors.orange),
+        );
+        // Lỗi API -> Dừng proxy và timer?
+        await _stopProxy();
+      }
+    } on DioException catch (e) {
+      print("Periodic Rotate API DioException: ${e.message}");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Rotation network error: ${_getDioErrorMessage(e)}'), backgroundColor: Colors.orange));
+      }
+      // Lỗi mạng -> Dừng proxy và timer?
+      await _stopProxy();
+    } catch (e) {
+      print("Unexpected error during periodic rotation: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error during rotation: $e'), backgroundColor: Colors.red));
+      }
+      // Lỗi khác -> Dừng proxy và timer?
+      await _stopProxy();
+    }
   }
 
   Future<void> _fetchProxyList() async {
@@ -117,7 +231,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
     return e.message ?? defaultMessage;
   }
 
-  Future<void> _startProxyViaNative(ProxyItem item, String host, int port, String username, String password) async {
+  Future<void> _startProxyViaNative(ProxyItem item, String host, int port, String username, String password, {bool isPeriodicUpdate = false}) async {
     List<String> allowedAppPackages = [];
     final Map<String, dynamic> proxyDataToSend = {
       'proxyName': item.token,
@@ -130,19 +244,32 @@ class _ProxyListHomeState extends State<ProxyListHome> {
     };
 
     try {
-      print("Invoking startVpn with data: $proxyDataToSend");
+      print("${isPeriodicUpdate ? 'Updating' : 'Invoking'} startVpn with data: $proxyDataToSend");
       final bool? result = await platform.invokeMethod<bool>('startVpn', proxyDataToSend);
 
       if (!mounted) return;
 
       if (result == true) {
-        print("---- ProxyListHome startVpn for ${item.token} success");
-        setState(() {
-          _runningProxyToken = item.token;
-        });
+        print("---- ProxyListHome startVpn for ${item.token} ${isPeriodicUpdate ? 'update' : 'initial start'} success");
+        if (_runningProxyToken != item.token || isPeriodicUpdate) {
+          setState(() {
+            _runningProxyToken = item.token;
+            // Reset starting token nếu đây là lần khởi động đầu tiên thành công
+            if (!isPeriodicUpdate) {
+              _startingProxyToken = null;
+            }
+          });
+        }
+        // --- Bắt đầu Timer sau khi Native xác nhận thành công ---
+        await _startRotationTimerIfNeeded(item);
       } else {
         print("---- ProxyListHome startVpn for ${item.token} failed (result is not true)");
         if(mounted){
+          setState(() {
+            _runningProxyToken = null;
+            if (!isPeriodicUpdate) _startingProxyToken = null;
+          });
+          _stopRotationTimer(); // Dừng timer nếu có lỗi
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Failed to start proxy via native method.'), backgroundColor: Colors.orange),
           );
@@ -151,6 +278,11 @@ class _ProxyListHomeState extends State<ProxyListHome> {
     } on PlatformException catch (e) {
       print("---- Failed to invoke startVpn: '${e.message}'.");
       if (mounted) {
+        setState(() {
+          _runningProxyToken = null;
+          if (!isPeriodicUpdate) _startingProxyToken = null;
+        });
+        _stopRotationTimer();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to start proxy: ${e.message}')),
         );
@@ -158,20 +290,66 @@ class _ProxyListHomeState extends State<ProxyListHome> {
     } catch (e) {
       print("---- Unexpected error invoking startVpn: $e");
       if (mounted) {
+        setState(() {
+          _runningProxyToken = null;
+          if (!isPeriodicUpdate) _startingProxyToken = null;
+        });
+        _stopRotationTimer();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('An error occurred: $e')),
         );
       }
     } finally {
-      if (mounted && _startingProxyToken == item.token) {
+      if (!isPeriodicUpdate && mounted && _startingProxyToken == item.token) {
         setState(() { _startingProxyToken = null; });
       }
+    }
+  }
+
+  Future<void> _startRotationTimerIfNeeded(ProxyItem item) async {
+    // Dừng timer cũ trước khi bắt đầu cái mới
+    _stopRotationTimer();
+
+    // Lấy cài đặt rotation
+    final rotationSettings = await _getRotationSettings(item.token);
+    _currentRotationEnabled = rotationSettings['enabled'] as bool;
+    _currentRotateTimerSeconds = rotationSettings['timer'] as int?;
+
+    // Nếu bật rotation và có thời gian hợp lệ
+    if (_currentRotationEnabled && _currentRotateTimerSeconds != null && _currentRotateTimerSeconds! > 0) {
+      print("Starting rotation timer for ${item.token} with interval $_currentRotateTimerSeconds seconds.");
+      _rotationTimer = Timer.periodic(
+        Duration(seconds: _currentRotateTimerSeconds!),
+            (timer) {
+          // Gọi hàm thực hiện rotation khi timer kích hoạt
+          _performRotation(item.token);
+        },
+      );
+    } else {
+      print("Rotation timer not started for ${item.token} (enabled=$_currentRotationEnabled, timer=$_currentRotateTimerSeconds).");
+    }
+  }
+
+// --- Hàm dừng Timer ---
+  void _stopRotationTimer() {
+    if (_rotationTimer != null) {
+      print("Cancelling existing rotation timer.");
+      _rotationTimer!.cancel();
+      _rotationTimer = null;
+      // Reset luôn các biến liên quan đến timer hiện tại
+      _currentRotationEnabled = false;
+      _currentRotateTimerSeconds = null;
     }
   }
 
   Future<void> _stopProxy() async {
     final String? tokenToStop = _runningProxyToken ?? _startingProxyToken;
     if (tokenToStop == null) return;
+
+    print("Stopping proxy and rotation timer (if any) for $tokenToStop");
+    // --- Dừng Timer trước ---
+    _stopRotationTimer();
+    // -----------------------
 
     if (mounted) {
       setState(() {
