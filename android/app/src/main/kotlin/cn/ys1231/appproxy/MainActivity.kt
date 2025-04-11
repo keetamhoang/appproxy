@@ -222,10 +222,10 @@ class MainActivity : FlutterActivity() {
         if (requestCode == REQUEST_NOTIFICATION_PERMISSION) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // 权限被授予
-                Toast.makeText(this, "通知权限被授予", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Notification permission granted", Toast.LENGTH_SHORT).show()
             } else {
                 // 权限被拒绝
-                Toast.makeText(this, "此应用程序需要通知权限", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "This app requires notification permission", Toast.LENGTH_SHORT).show()
                 startNotificationSetting()
             }
         }
