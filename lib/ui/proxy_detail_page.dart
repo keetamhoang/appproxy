@@ -91,7 +91,7 @@ class _ProxyDetailPageState extends State<ProxyDetailPage> {
   Future<Map<String, String>> _fetchCountries() async {
     final apiClient = ApiClient.instance;
     try {
-      final response = await apiClient.get('/api/public/proxy/country');
+      final response = await apiClient.get('/api/public/proxy/country', queryParameters: {'type': widget.proxyItem.type});
       if (response.statusCode == 200 && response.data['success'] == true) {
         final Map<String, dynamic> rawData = response.data['data'];
         final Map<String, String> countries = rawData.map((key, value) => MapEntry(key, value.toString()));
@@ -200,6 +200,7 @@ class _ProxyDetailPageState extends State<ProxyDetailPage> {
 
     if (_isSettingsLoading) {
       return Scaffold(
+        backgroundColor: Colors.white,
         appBar: AppBar(title: const Text('Loading Settings...')),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -208,7 +209,9 @@ class _ProxyDetailPageState extends State<ProxyDetailPage> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
+        backgroundColor: Colors.white,
         appBar: AppBar(
+          backgroundColor: Colors.white,
           elevation: theme.appBarTheme.elevation,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new),

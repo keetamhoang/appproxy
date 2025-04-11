@@ -1,4 +1,5 @@
 import 'package:appproxy/ui/app_config_list.dart';
+import 'package:appproxy/ui/app_config_proxy.dart';
 import 'package:appproxy/ui/proxy_list_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -74,7 +75,7 @@ class MyApp extends StatelessWidget {
             fontSize: 20, // Điều chỉnh size nếu cần
             fontWeight: FontWeight.w500, // Điều chỉnh weight nếu cần
             color: // Chọn màu phù hợp với AppBar của bạn (ví dụ: colorScheme.onPrimary)
-            null, // Để null để nó tự lấy màu từ theme
+            Colors.black, // Để null để nó tự lấy màu từ theme
           ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
@@ -144,7 +145,7 @@ class _iyueMainPageState extends State<iyueMainPage> {
     if (_currentIndex == 0) {
       final theme = Theme.of(context); // Lấy theme
       return AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor, // Màu nền giống Scaffold
+        backgroundColor: Colors.white, // Màu nền giống Scaffold
         automaticallyImplyLeading: false, // Không có nút back tự động
         title: Text(
           'YeuProxy.com', // Tiêu đề
@@ -185,6 +186,7 @@ class _iyueMainPageState extends State<iyueMainPage> {
     // final theme = Theme.of(context); // Không cần lấy theme ở đây nữa
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: _buildAppBar(context, s),
       body: IndexedStack(
         index: _currentIndex,

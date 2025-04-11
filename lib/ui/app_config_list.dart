@@ -9,11 +9,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lpinyin/lpinyin.dart';
 
-class AppConfigList extends StatefulWidget {
-  const AppConfigList({super.key});
+class AppConfigListBk extends StatefulWidget {
+  const AppConfigListBk({super.key});
 
   @override
-  State<AppConfigList> createState() => AppConfigState();
+  State<AppConfigListBk> createState() => AppConfigState();
 }
 
 enum AppOption {
@@ -65,7 +65,7 @@ Future<List> getAppListInIsolate() async {
   return Isolate.run(() => invokeGetAppList(rootIsolateToken));
 }
 
-class AppConfigState extends State<AppConfigList> {
+class AppConfigState extends State<AppConfigListBk> {
   var _itemCount = 0;
 
   // 所有app列表

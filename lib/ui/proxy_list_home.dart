@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:appproxy/events/app_events.dart';
 import 'package:appproxy/ui/proxy_detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -102,7 +103,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
     return {'enabled': enabled, 'timer': timerSeconds};
   }
 
-  Future<void> _performRotation(String token) async {
+  Future<void> _performRotation(String token, String type) async {
     // Kiểm tra xem proxy này có còn đang chạy không và widget còn tồn tại không
     if (!mounted || _runningProxyToken != token || !_currentRotationEnabled || _currentRotateTimerSeconds == null) {
       print("Rotation stopped: Conditions not met (mounted=$mounted, running=$_runningProxyToken, expected=$token, enabled=$_currentRotationEnabled)");
@@ -117,7 +118,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
       final String country = await _getSavedCountryForSettings(token); // Lấy country mới nhất
       final Map<String, dynamic> rotateApiBody = {
         "token": token,
-        "type": "rotate",
+        "type": type,
         "country": country,
       };
 
@@ -144,7 +145,8 @@ class _ProxyListHomeState extends State<ProxyListHome> {
         if (host != null && port != null && username != null && password != null) {
           print("Periodic Rotate API successful. Extracted: host=$host, port=$port, user=$username");
           // Tìm lại ProxyItem gốc để lấy type (hoặc lưu type vào state)
-          final originalItem = _proxyList.firstWhere((p) => p.token == token, orElse: () => ProxyItem(token: token, expiredAt: '', status: 0, createdAt: '', type: 'http')); // Cần type gốc
+          final originalItem = _proxyList.firstWhere((p) => p.token == token, orElse:
+              () => ProxyItem(token: token, expiredAt: '', status: 0, createdAt: '', type: '', note: '', typeText: '')); // Cần type gốc
 
           // Gọi lại hàm Native Start VPN với thông tin MỚI
           // Lưu ý: Không set _startingProxyToken ở đây vì đây là update ngầm
@@ -234,7 +236,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
   }
 
   Future<void> _startProxyViaNative(ProxyItem item, String host, int port, String username, String password, Map<String, dynamic> apiData, {bool isPeriodicUpdate = false}) async {
-    List<String> allowedAppPackages = [];
+    String allowedAppPackages = appProxyPackageList.getListString();
     final Map<String, dynamic> proxyDataToSend = {
       'proxyName': item.token,
       'proxyType': 'http',
@@ -328,7 +330,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
         Duration(seconds: _currentRotateTimerSeconds!),
             (timer) {
           // Gọi hàm thực hiện rotation khi timer kích hoạt
-          _performRotation(item.token);
+          _performRotation(item.token, item.type);
         },
       );
     } else {
@@ -425,7 +427,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
 
         final Map<String, dynamic> rotateApiBody = {
           "token": item.token,
-          "type": "rotate",
+          "type": item.type,
           "country": country,
         };
 
@@ -604,7 +606,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: theme.cardColor,
+            color: Colors.grey[50],
             boxShadow: [
               BoxShadow(
                 blurRadius: 3,
@@ -655,7 +657,7 @@ class _ProxyListHomeState extends State<ProxyListHome> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4.0),
                         child: AutoSizeText(
-                          item.type.toUpperCase(),
+                          item.typeText.toUpperCase(),
                           style: textTheme.bodySmall?.copyWith(
                             fontFamily: GoogleFonts.afacad().fontFamily,
                             letterSpacing: 0.0,
@@ -674,6 +676,14 @@ class _ProxyListHomeState extends State<ProxyListHome> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (item.note != null && item.note!.isNotEmpty)
+                        Text(
+                          'Note: ${item.note}',
+                          style: textTheme.labelSmall?.copyWith(
+                            color: Colors.grey[800],
+                            fontFamily: GoogleFonts.afacad().fontFamily,
+                          ),
+                        ),
                       if (isRunning && details != null) ...[
                         const SizedBox(height: 5), // Khoảng cách nhỏ
                         if (currentIp != null)

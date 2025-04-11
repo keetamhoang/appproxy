@@ -10,6 +10,8 @@ class ProxyItem {
   final int status; // 1 = active? 0 = inactive?
   final String createdAt; // Giữ dạng String
   final String type;
+  final String note;
+  final String typeText;
 
   ProxyItem({
     required this.token,
@@ -17,6 +19,8 @@ class ProxyItem {
     required this.status,
     required this.createdAt,
     required this.type,
+    required this.note,
+    required this.typeText,
   });
 
   // Factory constructor để tạo instance từ JSON (Map)
@@ -28,6 +32,8 @@ class ProxyItem {
       status: (json['status'] is int) ? json['status'] : ( (json['status'] is String) ? (int.tryParse(json['status']) ?? 0) : 0 ) , // Xử lý cả int và String
       createdAt: json['created_at'] as String? ?? '',
       type: json['type'] as String? ?? 'unknown', // Cung cấp loại mặc định
+      note: json['note'] as String? ?? '',
+      typeText: json['type_text'] as String? ?? '',
     );
   }
 
